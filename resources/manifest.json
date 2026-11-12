@@ -1,0 +1,11 @@
+{
+  "Group": "Vitja",
+  "Name": "TexturePackStarter",
+  "Version": "1.0.0",
+  "Description": "Minimal Common-path texture pack registration example.",
+  "Authors": [{"Name": "Vitja"}],
+  "Main": "Vitja.TexturePackStarter.StarterPlugin",
+  "ServerVersion": ">=0.7.0 <0.8.0",
+  "Dependencies": {"Vitja:TexturePackManager": "*"},
+  "IncludesAssetPack": false
+}

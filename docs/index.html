@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Texture Pack Manager API v1: build a lightweight Hytale texture-pack mod, use native paths and manage server-wide priority.">
+<title>Texture Pack Manager — Developer Guide</title><link rel="stylesheet" href="style.css"></head>
+<body><a class="skip" href="#guide">Skip to API guide</a>
+<aside><a class="brand" href="#">Texture Pack<br><strong>Manager</strong></a><p class="version">DEVELOPER GUIDE · API v1</p>
+<nav aria-label="API sections"><a href="#1-what-a-pack-can-change">1. What a pack can change</a><a href="#2-quick-start-and-demo-mod">2. Quick start and demo mod</a><a href="#3-use-hytales-directory-layout">3. Use Hytale&#x27;s directory layout</a><a href="#4-register-a-pack">4. Register a pack</a><a href="#5-build-and-install">5. Build and install</a><a href="#6-priority-fallback-and-activation">6. Priority, fallback and activation</a><a href="#7-public-api-reference">7. Public API reference</a><a href="#8-native-visual-definitions">8. Native visual definitions</a><a href="#9-resolution-transparency-and-animation">9. Resolution, transparency and animation</a><a href="#10-live-reload-restoration-and-lifecycle">10. Live reload, restoration and lifecycle</a><a href="#11-troubleshooting">11. Troubleshooting</a><a href="#12-pack-author-checklist">12. Pack author checklist</a></nav>
+<div class="side-links"><a href="https://github.com/Vltja/texture-pack-manager-examples">Example repository ↗</a><a href="https://www.curseforge.com/hytale/mods/texture-pack-manager">Manager on CurseForge ↗</a></div></aside>
+<main><header class="intro"><p class="eyebrow">BUILD YOUR OWN TEXTURE PACK</p><h1>One registration.<br>Native texture paths.</h1>
+<p>Start with a small, downloadable example. The Manager handles activation, order and server-wide texture selection.</p>
+<div class="actions"><a class="primary" href="https://github.com/Vltja/texture-pack-manager-examples/archive/refs/tags/v1.0.0.zip">Download example source</a><a href="https://github.com/Vltja/texture-pack-manager-examples/releases/tag/v1.0.0">Demo JAR &amp; build instructions</a></div>
+<p class="notice">Requires JDK 25+, Python 3.9+, HytaleServer.jar and the separate Manager 0.3.1 JAR. No Manager or SDK classes are bundled.</p></header>
+<article id="guide"><h1 id="texture-pack-manager--developer-api-guide">Texture Pack Manager — Developer API Guide</h1>
+<p><strong>API v1 · Manager 0.3.1 · Hytale 0.7.7 · reviewed 2026-11-12</strong></p>
+<p>A texture pack is a separate Hytale Java mod. It carries its replacement images in its own JAR, registers them with Texture Pack Manager, and lets the server administrator choose activation and priority. Keep the original Hytale <code>Common/...</code> directory layout. The manager reads the resources directly; server owners do not copy individual textures or merge packs by hand.</p>
+<p><strong>Server-wide pack selection:</strong> This Manager uses Hytale's server-authoritative asset workflow: the server administrator selects one enabled pack stack and priority order for the whole server. All players receive the same server-selected texture overrides. Separate personal texture-pack selections for individual players are currently not supported. The per-player UI language setting changes the menu language only.</p>
+<p>This guide describes the current experimental implementation. The manifest declares the Hytale <code>0.7.x</code> range; actual runtime observations are from <strong>0.7.7</strong>. API v1 is the current contract name, not a guarantee of compatibility with every future manager release. Compile against the manager version you intend to support.</p>
+<h2 id="contents">Contents</h2>
+<ol>
+<li><a href="#1-what-a-pack-can-change">What a pack can change</a></li>
+<li><a href="#2-quick-start-and-demo-mod">Quick start and demo mod</a></li>
+<li><a href="#3-use-hytales-directory-layout">Use Hytale's directory layout</a></li>
+<li><a href="#4-register-a-pack">Register a pack</a></li>
+<li><a href="#5-build-and-install">Build and install</a></li>
+<li><a href="#6-priority-fallback-and-activation">Priority, fallback and activation</a></li>
+<li><a href="#7-public-api-reference">Public API reference</a></li>
+<li><a href="#8-native-visual-definitions">Native visual definitions</a></li>
+<li><a href="#9-resolution-transparency-and-animation">Resolution, transparency and animation</a></li>
+<li><a href="#10-live-reload-restoration-and-lifecycle">Live reload, restoration and lifecycle</a></li>
+<li><a href="#11-troubleshooting">Troubleshooting</a></li>
+<li><a href="#12-pack-author-checklist">Pack author checklist</a></li>
+</ol>
+<h2 id="1-what-a-pack-can-change">1. What a pack can change</h2>
+<p>The normal API replaces <strong>existing, registered Common PNGs by their exact path</strong>. It does not add new content or infer which materials use a file. A single PNG can be shared by several consumers: replacing it affects all consumers that use that path.</p>
+<table>
+<thead>
+<tr>
+<th>Visual content</th>
+<th>Current API route</th>
+<th>Evidence and limits on Hytale 0.7.7</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Block, terrain and prop textures</td>
+<td><code>TexturePack.Entry</code></td>
+<td>Selected stone, grass, dirt and workbench swaps and restoration observed live. Include each needed face/random variant.</td>
+</tr>
+<tr>
+<td>Textures owned by other mods</td>
+<td><code>Entry</code> with that mod's exact Common-relative path</td>
+<td>Aether Stone 0.6.10 quartz ore and lamp model textures changed live through a separate registration-only patch; source mod unchanged. Other mod consumers need their own checks.</td>
+</tr>
+<tr>
+<td>Item and equipment textures</td>
+<td><code>Entry</code></td>
+<td>Original-dimensional iron hatchet observed. A scaled tool fixture was rejected by the client.</td>
+</tr>
+<tr>
+<td>Armor textures</td>
+<td><code>Entry</code></td>
+<td>Original 64×64 iron chest texture observed on an NPC wearing the native equipped item; live swap and restoration. Other pieces and player third-person views remain unqualified.</td>
+</tr>
+<tr>
+<td>Non-cosmetic NPC textures</td>
+<td><code>Entry</code></td>
+<td>Cow texture changed and restored live. Other NPCs require their own material/UV checks.</td>
+</tr>
+<tr>
+<td>Water and lava textures</td>
+<td><code>Entry</code></td>
+<td>Both sources and naturally spread flow levels 1..7 changed and restored live in a controlled test. This does not replace fluid simulation or its shader.</td>
+</tr>
+<tr>
+<td>Particle sprites and weather precipitation PNGs</td>
+<td><code>Entry</code>; optional native definitions</td>
+<td>Sun-shaft particle appearance and rain impact sprites changed. Alpha correctness, all emitters and animation behavior are not fully qualified.</td>
+</tr>
+<tr>
+<td>Beams and trails</td>
+<td><code>Entry</code>; <code>Beam</code>/<code>Trail</code> definitions</td>
+<td>Basic beam PNG and native texture-path changes/restoration observed. Trail rendering has not been verified.</td>
+</tr>
+<tr>
+<td>Sky and weather appearance</td>
+<td><code>Weather</code> definition; referenced PNGs via <code>Entry</code></td>
+<td>Sky/fog color changes/restoration observed. Moon/cloud/star texture replacement and a generic skybox/cubemap API are unqualified.</td>
+</tr>
+<tr>
+<td>Other existing Common PNGs, including some icons/UI images</td>
+<td><code>Entry</code></td>
+<td>Eligible by file format and path if registered; no general UI/font/material compatibility guarantee. Native <code>.ui</code> and XAML files are not accepted.</td>
+</tr>
+<tr>
+<td>Original character clothing, hair and official cosmetics</td>
+<td>Excluded</td>
+<td>Direct protected cosmetic PNG targets are rejected. Armor is a separate supported scope.</td>
+</tr>
+<tr>
+<td>Models and skeletal animation files</td>
+<td>Not exposed</td>
+<td><code>.blockymodel</code> and <code>.blockyanim</code> replacement is not implemented. <code>ModelAsset</code> JSON is a reference/configuration adapter, not a model-file loader.</td>
+</tr>
+<tr>
+<td>Custom shader programs, general lighting engine, camera/ModelVFX stores</td>
+<td>Not exposed as dedicated APIs</td>
+<td>An image of a light ray changes its visible sprite; it does not establish control over actual light propagation or arbitrary shaders.</td>
+</tr>
+<tr>
+<td>Sounds and other audio</td>
+<td>Excluded</td>
+<td>No audio file or audio-store interface.</td>
+</tr>
+</tbody>
+</table>
+<p>Registration success means the pack passed server-side resource checks. It does <strong>not</strong> certify that every consumer rendered the replacement. Current native JSON adapters are experimental; see section 8 before using them.</p>
+<h2 id="2-quick-start-and-demo-mod">2. Quick start and demo mod</h2>
+<p><strong>Texture Pack Starter 1.0.0</strong> is the small registration-only example for Manager 0.3.1. Get the complete source and standalone build from the <a href="https://github.com/Vltja/texture-pack-manager-examples">public example repository</a>, or download its <a href="https://github.com/Vltja/texture-pack-manager-examples/archive/refs/tags/v1.0.0.zip">source ZIP</a> and <a href="https://github.com/Vltja/texture-pack-manager-examples/releases/download/v1.0.0/texture-pack-starter-1.0.0.jar">compiled demo JAR</a>. The Manager is a separate dependency. The complete manual-entry plugin in section 4 is an alternative starting point. It contains three original diagnostic stone PNGs at the native paths, one pack registration and no gameplay content or test commands. Its manifest identity is <code>Vitja:TexturePackStarter</code>; its manager pack ID is <code>vitja.starter.stone</code>. Those are different identifiers.</p>
+<p>The starter follows this workflow:</p>
+<ol>
+<li>Put replacement PNGs under <code>resources/Common/</code> using the original relative paths.</li>
+<li>Generate <code>resources/textures.list</code> from those PNG paths during the build.</li>
+<li>Register one <code>TexturePack</code> in the plugin's <code>setup()</code> method.</li>
+<li>Install the starter JAR together with the manager JAR.</li>
+<li>Open <code>/texturepacks</code>, enable the pack, choose its place with <strong>Up / Down</strong>, then <strong>Apply / Reload</strong>.</li>
+</ol>
+<pre><code class="language-text">Texture Pack Starter/
+├── src/Vitja/TexturePackStarter/
+│   ├── StarterPlugin.java
+│   └── StarterPack.java
+├── resources/
+│   ├── manifest.json
+│   ├── textures.list
+│   └── Common/BlockTextures/
+│       ├── Rock_Stone.png
+│       ├── Rock_Stone_2.png
+│       └── Rock_Stone_3.png
+└── tools/index_textures.py
+</code></pre>
+<p>The larger <strong>Texture Pack Demo 0.3.2</strong> and <strong>Texture Pack Conflict 0.2.2</strong> are advanced local fixtures for visual probes and priority tests. Their local fixture commands, including <code>/tpmscene</code> and <code>/tpmvis</code> in Demo, are not part of the public manager API. The Demo world-editing probes depend on a specific local world. Start with the starter rather than copying those test commands to another server.</p>
+<p>The starter's final JAR is compile- and registration-checked. This new starter artifact has not itself received a native gameplay test; the underlying stone target mechanism has earlier representative client evidence. The standalone source build is verified on Linux with JDK 25 and Python; Windows/macOS use the same portable workflow but have not received separate native acceptance tests. The example includes diagnostic artwork; replace it with your own PNGs for your real pack.</p>
+<h2 id="3-use-hytales-directory-layout">3. Use Hytale's directory layout</h2>
+<p>For an original file <code>Common/BlockTextures/Rock_Stone.png</code>, package your replacement at exactly the same location inside your JAR:</p>
+<table>
+<thead>
+<tr>
+<th>Meaning</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Source project resource</td>
+<td><code>resources/Common/BlockTextures/Rock_Stone.png</code></td>
+</tr>
+<tr>
+<td>Final JAR entry</td>
+<td><code>Common/BlockTextures/Rock_Stone.png</code></td>
+</tr>
+<tr>
+<td>API target</td>
+<td><code>BlockTextures/Rock_Stone.png</code></td>
+</tr>
+<tr>
+<td>Absolute JAR resource</td>
+<td><code>/Common/BlockTextures/Rock_Stone.png</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>Common/</code> is retained in your resource folders and omitted only from the API <strong>target</strong>. Use forward slashes and exact spelling/capitalization. <code>resources/</code> is a project source directory, not part of the JAR path. Maven/Gradle projects may use <code>src/main/resources/Common/...</code> with the same final JAR entries.</p>
+<p>The API permits a resource at another private JAR location, but mirroring <code>Common/...</code> avoids unnecessary remapping. No manager-specific texture directory is required.</p>
+<p>Find paths and references in the assets of the Hytale version you support. A block may refer to several face/random variants, an item may have separate held-model and icon PNGs, and a material may apply a tint or greyscale mask. A display name such as “Stone” is not an API target. Only ship the replacement resources you need.</p>
+<h3 id="patch-textures-owned-by-another-mod">Patch textures owned by another mod</h3>
+<p>Vanilla and mod-provided PNGs use the same native Common asset registry. A patch targets the <strong>exact registered path</strong>, regardless of which mod originally supplied it. There is no special vanilla-only directory restriction. For example, an Aether Stone patch keeps this layout:</p>
+<pre><code class="language-text">Common/Blocks/VMCAether/Minerals/QuartzOre.png
+Common/Blocks/VMCAether/Lamp_Off.png
+Common/Icons/Items/VMCAether/QuartzOre.png
+</code></pre>
+<p>The corresponding API targets omit only <code>Common/</code>, for example <code>Blocks/VMCAether/Lamp_Off.png</code>. Declare required dependencies on both the manager and the content mod:</p>
+<pre><code class="language-json">&quot;Dependencies&quot;: {
+  &quot;Vitja:TexturePackManager&quot;: &quot;*&quot;,
+  &quot;Vitja:MCRedstone&quot;: &quot;*&quot;
+},
+&quot;IncludesAssetPack&quot;: false
+</code></pre>
+<p>This fragment belongs inside the complete manifest from section 4. Aether Stone's current technical identity is <code>Vitja:MCRedstone</code>; its display name is not the dependency key. The diagnostic <strong>Texture Pack Aether Patch 1.0.0</strong> registers three PNG entries through the same public API. It adds no items, commands, listeners, scheduled work or threads and changes no Aether Stone code or native definitions.</p>
+<p>A modpack can therefore install a base texture pack plus separate style patches for selected content mods. Enable the wanted packs, put any patch above another pack that supplies the <strong>same path</strong>, then Apply. Other paths keep their lower-pack replacement or captured original. “Original” for a mod-owned path means that content mod's previously active texture.</p>
+<p>The source mod must be installed and its target registered before Apply. A required dependency establishes ordinary load ordering; a mod that generates/changes paths later at runtime needs additional coordination. Target version/variant changes, random generated names and a source mod that keeps rewriting the same asset are not automatically resolved. State which content-mod versions your patch was checked against. The PNG API replaces existing files; it does not invent missing assets or modify gameplay behavior.</p>
+<h3 id="automatic-index-in-the-starter">Automatic index in the starter</h3>
+<p>The manager does <strong>not</strong> scan your JAR automatically. The starter's build helper finds all <code>.png</code> files under <code>resources/Common/</code> and writes a UTF-8, newline-separated list without the <code>Common/</code> prefix:</p>
+<pre><code class="language-text">BlockTextures/Rock_Stone.png
+BlockTextures/Rock_Stone_2.png
+BlockTextures/Rock_Stone_3.png
+</code></pre>
+<p><code>StarterPack.create()</code> reads this list and creates one entry per line:</p>
+<pre><code class="language-java">new TexturePack.Entry(&quot;textures&quot;, path, &quot;/Common/&quot; + path)
+</code></pre>
+<p><code>textures.list</code>, the index generator and <code>StarterPack</code> are <strong>example-local helpers</strong>, not extra manager API methods or a required file format. Generate the index on every build so newly added or removed PNGs are reflected. You can instead construct the entries directly, as below. Native JSON definitions always need an explicit <code>(store, id, resource)</code> mapping.</p>
+<h2 id="4-register-a-pack">4. Register a pack</h2>
+<h3 id="required-manifest">Required manifest</h3>
+<p>This is the starter's actual root <code>manifest.json</code>:</p>
+<pre><code class="language-json">{
+  &quot;Group&quot;: &quot;Vitja&quot;,
+  &quot;Name&quot;: &quot;TexturePackStarter&quot;,
+  &quot;Version&quot;: &quot;1.0.0&quot;,
+  &quot;Description&quot;: &quot;Minimal Common-path texture pack registration example.&quot;,
+  &quot;Authors&quot;: [{&quot;Name&quot;: &quot;Vitja&quot;}],
+  &quot;Main&quot;: &quot;Vitja.TexturePackStarter.StarterPlugin&quot;,
+  &quot;ServerVersion&quot;: &quot;&gt;=0.7.0 &lt;0.8.0&quot;,
+  &quot;Dependencies&quot;: {&quot;Vitja:TexturePackManager&quot;: &quot;*&quot;},
+  &quot;IncludesAssetPack&quot;: false
+}
+</code></pre>
+<p>For your own mod, replace the example's group/name, author, main class and version with your identity. Keep the manager dependency required. <code>&quot;*&quot;</code> declares that the manager must be present; it is not evidence of compatibility with every manager version.</p>
+<p><strong>Set <code>IncludesAssetPack</code> to <code>false</code> for a manager-controlled pack.</strong> Your <code>Common/</code> resources are read by the manager after registration. Enabling ordinary native asset-pack loading as well can apply the same resources independently of the manager and defeat disabled state, priority and captured-baseline expectations. Do not separately load the replacement files through another asset-pack registration mechanism.</p>
+<h3 id="complete-minimal-registration-without-helpers">Complete minimal registration without helpers</h3>
+<p>This alternative is self-contained and uses the three PNGs above. It has the same main class and pack ID as the starter: choose either this version or the starter's index-based version, not both.</p>
+<pre><code class="language-java">package Vitja.TexturePackStarter;
+
+import Vitja.TexturePackManager.api.TexturePack;
+import Vitja.TexturePackManager.api.TexturePackApi;
+import com.hypixel.hytale.server.core.plugin.JavaPlugin;
+import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
+import java.util.List;
+
+public final class StarterPlugin extends JavaPlugin {
+    private static final String PACK_ID = &quot;vitja.starter.stone&quot;;
+    private boolean registered;
+
+    public StarterPlugin(JavaPluginInit init) { super(init); }
+
+    @Override protected void setup() {
+        TexturePack pack = new TexturePack(
+            PACK_ID, &quot;Texture Pack Starter&quot;, &quot;1.0.0&quot;, &quot;Vitja&quot;,
+            List.of(
+                new TexturePack.Entry(&quot;blocks&quot;, &quot;BlockTextures/Rock_Stone.png&quot;,
+                                      &quot;/Common/BlockTextures/Rock_Stone.png&quot;),
+                new TexturePack.Entry(&quot;blocks&quot;, &quot;BlockTextures/Rock_Stone_2.png&quot;,
+                                      &quot;/Common/BlockTextures/Rock_Stone_2.png&quot;),
+                new TexturePack.Entry(&quot;blocks&quot;, &quot;BlockTextures/Rock_Stone_3.png&quot;,
+                                      &quot;/Common/BlockTextures/Rock_Stone_3.png&quot;)
+            )
+        );
+        TexturePackApi.get().register(pack, StarterPlugin.class);
+        registered = true;
+    }
+
+    @Override protected void shutdown() {
+        if (registered) {
+            try { TexturePackApi.get().unregister(PACK_ID); }
+            catch (IllegalStateException managerAlreadyStopped) { }
+            registered = false;
+        }
+    }
+}
+</code></pre>
+<p>The index-based starter's setup reduces this to:</p>
+<pre><code class="language-java">TexturePackApi.get().register(StarterPack.create(), StarterPack.class);
+</code></pre>
+<p>Use a resource-owner class <strong>from your own pack JAR</strong>. The manager uses <code>resourceOwner.getResourceAsStream(...)</code>; using a manager class as the owner will look in the wrong JAR. The dependency orders normal plugin setup; do not call <code>get()</code> from a static initializer or before the manager is ready.</p>
+<p>One plugin may register several independent packs with unique IDs, each becoming a separate manager row. There is no partial-registration rollback across several calls: if you register several packs, track successful registrations and unregister them if a later setup step fails.</p>
+<h2 id="5-build-and-install">5. Build and install</h2>
+<p>Use a JDK compatible with the target server; this project compiles with <strong>JDK 25</strong>. Add the current Hytale server JAR and <strong>Texture Pack Manager 0.3.1 JAR</strong> to your compile classpath. Treat both as provided dependencies: do not shade, copy or embed Hytale classes or <code>Vitja/TexturePackManager/**</code> in the pack JAR. There is no published Maven coordinate for this Manager release.</p>
+<p>The <a href="https://github.com/Vltja/texture-pack-manager-examples#build-from-source">public Starter README</a> explains the standalone <code>build.py</code> workflow for Linux/macOS and Windows. It needs only Python 3.9+, JDK 25+ and your two local dependency JARs; no private project or sibling build script. The build regenerates the PNG index and produces <code>build/texture-pack-starter-1.0.0.jar</code>. The complete manual-entry plugin in section 4 needs neither <code>StarterPack.java</code> nor an index generator.</p>
+<p>For your own project using the complete manifest and manual-entry <code>StarterPlugin.java</code> from section 4, equivalent POSIX-shell commands are:</p>
+<pre><code class="language-sh"># Set these to the two JARs on your development machine.
+export HYTALE_SERVER_JAR='/absolute/path/to/HytaleServer.jar'
+export TEXTURE_PACK_MANAGER_JAR='/absolute/path/to/texture-pack-manager-0.3.1.jar'
+
+# Optional index-based variant only: run your own PNG index generator here.
+# The complete manual-entry plugin does not need textures.list.
+mkdir -p build/classes
+javac --release 25 \
+  -cp &quot;$HYTALE_SERVER_JAR:$TEXTURE_PACK_MANAGER_JAR&quot; \
+  -d build/classes src/Vitja/TexturePackStarter/*.java
+jar --create --file build/texture-pack-starter-1.0.0.jar \
+  -C build/classes . -C resources .
+</code></pre>
+<p>Use a clean class-output directory when removing or renaming classes. On Windows the Java classpath separator is <code>;</code>; use your build system's provided/compile-only dependency support or adapt the commands for your shell. No SDK classes should enter the final archive.</p>
+<p>Install the manager and pack JARs in the server's <code>mods/</code> directory, with only one version of each manifest identity. Restart the server to load/update a pack mod. The server supplies managed assets to clients; this is not a client-side Java-mod installation workflow. The new pack appears disabled unless saved settings already exist for its stable pack ID. Grant <code>vitja.texturepacks.admin</code>, then enable and apply it.</p>
+<h3 id="publish-the-required-dependency-on-curseforge">Publish the required dependency on CurseForge</h3>
+<p>Pack authors must declare the manager in <strong>both</strong> places:</p>
+<table>
+<thead>
+<tr>
+<th>Location</th>
+<th>Required setting</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pack JAR <code>manifest.json</code></td>
+<td><code>&quot;Dependencies&quot;: {&quot;Vitja:TexturePackManager&quot;: &quot;*&quot;}</code></td>
+<td>Require the manager at runtime and establish normal plugin load ordering. Use a tested version constraint when preparing the actual release.</td>
+</tr>
+<tr>
+<td>Pack's release file on CurseForge</td>
+<td>Relation to the actual <strong>Texture Pack Manager</strong> project, type <strong>Required Dependency</strong></td>
+<td>Tell dependency-aware installers that the manager must be installed with the pack. This is separate from the JAR manifest.</td>
+</tr>
+</tbody>
+</table>
+<p>After the manager has a public CurseForge project and a compatible downloadable file:</p>
+<ol>
+<li>Upload your pack to its own Hytale mod project, then edit the release file's dependency/relations metadata in the author dashboard.</li>
+<li>Select the real <strong>Texture Pack Manager</strong> project and set <strong>Required Dependency</strong>. Check the project's identity and URL; use the published numeric CurseForge project ID when a publishing tool asks for it. <code>Vitja:TexturePackManager</code> is the Hytale identity, not a CurseForge project ID.</li>
+<li>For a mod-specific patch, also mark the target content mod as a required CurseForge dependency, matching the additional manifest dependency. The Aether example therefore requires the Manager <strong>and Aether Stone</strong>.</li>
+<li>Save and reopen the file's Relations/dependency view. Confirm that the actual file being distributed lists the required projects; check every new pack release/update. Do not use Optional Dependency or Embedded Library for the separately installed manager, and do not bundle the manager/API inside the pack JAR.</li>
+<li>From a clean test installation/profile without the manager, install the pack through the intended supported client and verify that its dependency flow obtains a compatible manager. For a patch, check the content mod too. Then verify that the loaded pack appears in <code>/texturepacks</code>. Record the installer/version and result before advertising automatic installation.</li>
+</ol>
+<p>Required-dependency metadata allows a dependency-aware installer to resolve the manager. <strong>Automatic installation depends on the client</strong>, and has not yet been end-to-end tested with a published compatible pack and this Manager release. A plain browser download only obtains the chosen file; server owners/manual installers must also obtain the required manager and any target mod. This publishing dependency flow is separate from joining an already configured server, which synchronizes native assets as described below.</p>
+<p><strong>Manager project:</strong> <a href="https://www.curseforge.com/hytale/mods/texture-pack-manager">Texture Pack Manager on CurseForge</a>, numeric project ID <strong>1799221</strong>. This is distinct from the Hytale runtime identity <code>Vitja:TexturePackManager</code>. The project was created for the first 0.3.1 Release submission on 2026-11-11; visibility and downloadable files remain subject to moderation. The Starter source and demo download are on GitHub, separate from the Manager download. The Aether Patch remains a local diagnostic example. Configure and verify Required Dependency relations when releasing your actual pack, then perform the clean-install check; no automatic-install success is claimed here.</p>
+<p>Reference: CurseForge models dependencies on individual files with a project <code>modId</code> and <code>relationType</code>; <code>RequiredDependency</code> has value 3 in its <a href="https://docs.curseforge.com/rest-api/">official API schema</a>. Its <a href="https://support.curseforge.com/support/solutions/articles/9000273615-install-hytale-mods/">Hytale installation guide</a> distinguishes supported app installation from manual file installation. Sources checked 2026-11-11; recheck the dashboard and installer behavior at publication.</p>
+<h3 id="lightweight-pack-behavior-and-real-costs">Lightweight pack behavior and real costs</h3>
+<p>Keep a pack plugin to registration during setup and unregister during shutdown. Texture data and an optional generated index are sufficient; pack authors need no tick systems, polling, custom networking, per-player listeners or background executors. The Starter and Aether Patch follow this pattern. The manager handles activation, ordering and asset submission centrally.</p>
+<p>“Lightweight” does not mean zero memory or loading cost. In Manager <strong>0.3.1</strong>, registration reads, validates and decodes every installed pack's PNGs once, then retains their <strong>encoded PNG bytes even while disabled</strong>, plus metadata and plugin/class-loader overhead. Unregister releases the registered pack data, but applied/baseline/native caches can still retain assets. There is no lazy-only-active-pack loading policy yet. Many large packs can therefore increase startup work and server RAM; the 64 MiB PNG cap is <strong>per pack</strong>, not a global budget. PNG decoding also creates temporary image memory. No universal safe pack count is established.</p>
+<p>There is no per-pack ongoing simulation/tick loop in the reference pack plugins. Selection/UI/Apply still perform work when used, and enabled high-resolution textures can increase client download/cache size, GPU memory, rebuild time and rendering cost. The manager's worker acts on submissions rather than continuously applying every installed pack.</p>
+<h3 id="what-players-receive-when-joining">What players receive when joining</h3>
+<p>For these server-side Java mods, clients receive native <strong>asset data</strong>, not the pack's Java JAR or its code. With <code>IncludesAssetPack: false</code>, a registered but disabled pack's private resource bytes are not automatically loaded into Hytale's Common asset registry. Apply publishes the winning selected replacements under the existing paths; the native required-asset list reflects the effective asset/hash at each path, together with the server's other normal assets.</p>
+<p>Clients request assets they need according to their cache. Installing many disabled manager packs therefore does <strong>not</strong> imply downloading every PNG alternative on every join. Switching a pack while connected submits the changed assets through the manager's live batch. Previously received data can remain cached; disabling is not a promise to erase the client's cache. A content mod's normally registered assets and packs also loaded independently through the native asset-pack system follow their own loading behavior.</p>
+<p>The bounded Aether test checked a never-enabled sentinel resource: it was registered as pack metadata/data but absent from the native registry and required-asset list, and was not observed among requested/sent assets. This is scoped evidence, not a full bandwidth or concurrent-multiplayer benchmark.</p>
+<h2 id="6-priority-fallback-and-activation">6. Priority, fallback and activation</h2>
+<p>The <strong>topmost enabled pack that contains a target wins that target</strong>. Lower enabled packs fill missing targets. When none supplies a target, its captured baseline stays active or is restored. Resolution happens per PNG path, not per category, author or complete pack.</p>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th>Upper pack: grass only</th>
+<th>Lower pack: grass, dirt, stone</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Grass</td>
+<td>Has replacement A</td>
+<td>Has replacement B</td>
+<td>Upper pack A</td>
+</tr>
+<tr>
+<td>Dirt</td>
+<td>Absent</td>
+<td>Has replacement</td>
+<td>Lower pack</td>
+</tr>
+<tr>
+<td>Stone</td>
+<td>Absent</td>
+<td>Has replacement</td>
+<td>Lower pack</td>
+</tr>
+<tr>
+<td>Sand</td>
+<td>Absent</td>
+<td>Absent</td>
+<td>Baseline/original</td>
+</tr>
+</tbody>
+</table>
+<p>Move the lower pack above the other one and its grass wins too. A fully transparent PNG still counts as a replacement; it does not mean “fall through.” A disabled pack never supplies a winner. The API does not allow pack authors to force activation or reserve priority.</p>
+<p>Native JSON definitions use the same ordering, but their conflict key is the entire <strong>store + asset ID</strong>. Two definitions of <code>Weather / Zone1_Sunny</code> do not merge individual fields. A PNG and a definition are separate targets, so an upper PNG can coexist with a lower definition; authors should consider whether that combination makes visual sense.</p>
+<table>
+<thead>
+<tr>
+<th>Administrator action</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/texturepacks</code></td>
+<td>Open the native administrator UI.</td>
+</tr>
+<tr>
+<td>Enable/Disable, Up/Down</td>
+<td>Save desired activation/order; do not change rendering until Apply.</td>
+</tr>
+<tr>
+<td><strong>Apply / Reload</strong> or <code>/tpm apply</code></td>
+<td>Resolve and submit the selected replacements/restorations.</td>
+</tr>
+<tr>
+<td><strong>Disable all (then Apply)</strong></td>
+<td>Disable registered packs in desired settings; press Apply afterwards.</td>
+</tr>
+<tr>
+<td><code>/tpm</code></td>
+<td>List registered pack IDs, enabled states and priorities.</td>
+</tr>
+<tr>
+<td><code>/tpm enable &lt;id&gt;</code> / <code>/tpm disable &lt;id&gt;</code></td>
+<td>Save a pack's desired state.</td>
+</tr>
+<tr>
+<td><code>/tpm raise &lt;id&gt;</code> / <code>/tpm lower &lt;id&gt;</code></td>
+<td>Move one visible row; run Apply afterwards.</td>
+</tr>
+<tr>
+<td><code>/tpm reset</code></td>
+<td>Disable registered packs and apply baseline restoration.</td>
+</tr>
+</tbody>
+</table>
+<p>All manager commands and UI actions require <strong><code>vitja.texturepacks.admin</code></strong>. Use the game's permission system to grant it; pack mods should not grant permissions themselves. The UI offers <strong>Auto / Deutsch / English</strong> per player.</p>
+<p>The visible order and resolver match: descending numeric priority, then descending lexicographic pack ID for legacy ties. Up/Down normalizes the persisted order, so administrators need not manage numeric gaps or ties. UI “winning assets” counts describe the desired selection, not client-render acknowledgement.</p>
+<p>Settings persist as <code>packs.properties</code> in the manager's native plugin data directory (<code>mods/Vitja_TexturePackManager/</code> in the inspected setup). Keep pack IDs stable across updates. Name, author and version are display metadata; changing them does not migrate an ID. Do not edit the settings file while the manager is running. Saved settings are applied after registrations at normal server boot.</p>
+<h2 id="7-public-api-reference">7. Public API reference</h2>
+<p>The supported pack-author surface is in <strong><code>Vitja.TexturePackManager.api</code></strong>. Use the records and interface below; <code>PackService</code>, <code>ManagerPlugin</code>, <code>OverlayResolver</code>, the admin page and native packet code are manager internals.</p>
+<h3 id="texturepackapi"><code>TexturePackApi</code></h3>
+<pre><code class="language-java">static TexturePackApi get();
+void register(TexturePack pack, Class&lt;?&gt; resourceOwner);
+void unregister(String id);
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Member</th>
+<th>Contract</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>get()</code></td>
+<td>Obtain the running manager's API. Throws <code>IllegalStateException</code> if the manager is not ready/already stopped.</td>
+</tr>
+<tr>
+<td><code>register(pack, resourceOwner)</code></td>
+<td>Synchronously read and validate resources from the owner's JAR, then publish the pack to the available list. Does not activate or Apply it. Register once during setup. An already registered ID is rejected; this is not an update/upsert method.</td>
+</tr>
+<tr>
+<td><code>unregister(id)</code></td>
+<td>Remove the pack from future resolution. An unknown ID is a no-op. Desired settings are retained. Existing applied assets require another administrator Apply to resolve/restore. Normally call during plugin shutdown.</td>
+</tr>
+</tbody>
+</table>
+<p>Do not cache the API across manager shutdown/restart. There is no public method for Apply, enabled-state changes, priority control, runtime file discovery, client acknowledgement, winner queries or completion callbacks. Use administrator controls for those actions. Pack resources are read into memory on registration, so editing an already installed JAR does not refresh a registered pack; rebuild and restart normally.</p>
+<h3 id="texturepack"><code>TexturePack</code></h3>
+<pre><code class="language-java">new TexturePack(String id, String name, String version, String author,
+                List&lt;TexturePack.Entry&gt; entries);
+new TexturePack(String id, String name, String version, String author,
+                List&lt;TexturePack.Entry&gt; entries,
+                List&lt;TexturePack.Definition&gt; definitions);
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Field/accessor</th>
+<th>Rules</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id()</code></td>
+<td>Unique across all registered packs. Regex <code>[a-z0-9][a-z0-9._-]{0,95}</code>: 1–96 characters. Prefer your own namespace, e.g. <code>yourname.packname</code>. Stable configuration key, unrelated to the Hytale manifest ID.</td>
+</tr>
+<tr>
+<td><code>name()</code></td>
+<td>Non-null display name.</td>
+</tr>
+<tr>
+<td><code>version()</code></td>
+<td>Non-null display version. Not parsed as a manager dependency constraint.</td>
+</tr>
+<tr>
+<td><code>author()</code></td>
+<td>Non-null display author.</td>
+</tr>
+<tr>
+<td><code>entries()</code></td>
+<td>Non-null, immutable copied list of PNG overrides.</td>
+</tr>
+<tr>
+<td><code>definitions()</code></td>
+<td>Non-null, immutable copied list of native JSON overrides. The five-argument constructor uses an empty list.</td>
+</tr>
+</tbody>
+</table>
+<p>At least one entry or definition is required. A definition-only pack is allowed. Null list elements are rejected by the immutable list copy. Record accessors, value equality, hash code and <code>toString()</code> follow Java record semantics; mutating the source list later does not change a registered pack.</p>
+<h3 id="texturepackentry"><code>TexturePack.Entry</code></h3>
+<pre><code class="language-java">new TexturePack.Entry(String category, String target, String resource);
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Field/accessor</th>
+<th>Rules</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>category()</code></td>
+<td>Non-null descriptive label such as <code>blocks</code> or <code>textures</code>. Not a store selector, validator, separate toggle or priority boundary. No fixed category enumeration.</td>
+</tr>
+<tr>
+<td><code>target()</code></td>
+<td>Exact Common-relative path ending in lowercase <code>.png</code>, without leading <code>/</code>, backslashes or <code>..</code>. Use the canonical path without <code>Common/</code>. The target must already be registered when Apply captures the baseline. Original protected cosmetics are rejected.</td>
+</tr>
+<tr>
+<td><code>resource()</code></td>
+<td>Absolute classpath/JAR resource beginning with <code>/</code>, without <code>..</code>. Must exist in the owner JAR and contain valid PNG data. Recommended: <code>/Common/</code> plus <code>target</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Duplicate target paths within one pack are rejected on registration; overlaps between different packs are expected and resolved by priority. Path existence is checked at Apply, after normal asset loading; PNG resource availability/bytes are checked at registration.</p>
+<h3 id="texturepackdefinition"><code>TexturePack.Definition</code></h3>
+<pre><code class="language-java">new TexturePack.Definition(String store, String id, String resource);
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Field/accessor</th>
+<th>Rules</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>store()</code></td>
+<td>Exact, case-sensitive allowlisted native store name from section 8.</td>
+</tr>
+<tr>
+<td><code>id()</code></td>
+<td>Existing native asset ID, regex <code>[A-Za-z0-9_]+</code>. Not a path or localized display name.</td>
+</tr>
+<tr>
+<td><code>resource()</code></td>
+<td>Absolute JAR resource beginning with <code>/</code>, ending in lowercase <code>.json</code>, without <code>..</code>. UTF-8 JSON document.</td>
+</tr>
+</tbody>
+</table>
+<p>Duplicate <code>(store, id)</code> definitions within one pack are rejected. JSON syntax/size is checked on registration. Native store availability, original ID, codec decoding, references and actual rendering are later concerns; registration alone does not validate them all.</p>
+<h3 id="protectedcosmetics"><code>ProtectedCosmetics</code></h3>
+<p><code>ProtectedCosmetics.contains(String path)</code> is a public, version-scoped helper returning whether an exact Common-relative path belongs to the manager's direct cosmetic exclusion. Pass a non-null path. In 0.3.1 it covers <code>Cosmetics/</code>, <code>Characters/Haircuts/</code> and 241 exact creator-catalog PNG references from the inspected installation. <code>Entry</code> invokes it automatically. Do not treat the list as a permanent inventory, a claim about every engine restriction, or a sandbox for native definitions.</p>
+<h3 id="limits-and-errors">Limits and errors</h3>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Current limit/behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One PNG resource</td>
+<td>At most <strong>16 MiB</strong> encoded bytes; valid PNG signature and decodable image.</td>
+</tr>
+<tr>
+<td>PNG bytes in one pack</td>
+<td>At most <strong>64 MiB</strong> total. Native JSON bytes are not included in this particular cap.</td>
+</tr>
+<tr>
+<td>PNG dimensions</td>
+<td>Each axis 1–4096 pixels, at most <strong>16,777,216 pixels</strong>. Accepted dimensions do not establish consumer compatibility.</td>
+</tr>
+<tr>
+<td>One JSON definition</td>
+<td>At most <strong>1 MiB</strong> UTF-8 resource bytes, syntactically a JSON document.</td>
+</tr>
+<tr>
+<td>Number of packs/definitions</td>
+<td>No public aggregate budget. Operators must budget total memory and rebuild work.</td>
+</tr>
+</tbody>
+</table>
+<p>Invalid IDs, paths, excluded targets, duplicate registrations/targets, missing resources, size or format failures generally produce <code>IllegalArgumentException</code>; null required fields/lists may produce <code>NullPointerException</code>. Do not parse exception text as a stable machine-readable protocol. Constructor validation precedes registration; registration precedes native Apply validation. Fix and report a failed setup rather than silently registering an incomplete pack.</p>
+<h2 id="8-native-visual-definitions">8. Native visual definitions</h2>
+<p>Use PNG entries when the desired change is only an existing texture's pixels. Use a definition when you need a native visual field such as a weather color, a beam texture reference or a particle frame layout. A definition is a <strong>whole native asset replacement</strong>, not a JSON patch, field merge or new asset registration.</p>
+<table>
+<thead>
+<tr>
+<th>Store</th>
+<th>Intended visual use</th>
+<th>Current scope</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Beam</code></td>
+<td>Beam appearance and referenced texture</td>
+<td>Selected <code>Basic</code> texture-path change/restoration observed.</td>
+</tr>
+<tr>
+<td><code>Trail</code></td>
+<td>Trail appearance/reference</td>
+<td>Adapter allowlisted; rendering unverified.</td>
+</tr>
+<tr>
+<td><code>Weather</code></td>
+<td>Native weather sky/fog/colors and related references</td>
+<td>Selected <code>Zone1_Sunny</code> color change/restoration observed; does not automatically force the world to use that weather.</td>
+</tr>
+<tr>
+<td><code>ParticleSpawner</code></td>
+<td>Sprite/frame/emitter metadata</td>
+<td>Selected sun-shaft appearance observed after re-emission. Broad emitter/animation behavior unqualified.</td>
+</tr>
+<tr>
+<td><code>ParticleSystem</code></td>
+<td>Particle system references/configuration</td>
+<td>Adapter allowlisted; broad runtime behavior unverified.</td>
+</tr>
+<tr>
+<td><code>Fluid</code></td>
+<td>Existing fluid visual references</td>
+<td>Experimental full-definition adapter; fluid PNG tests did not exercise definition changes. Gameplay properties must remain unchanged.</td>
+</tr>
+<tr>
+<td><code>FluidFX</code></td>
+<td>Fluid visual effect configuration</td>
+<td>Adapter allowlisted; broad runtime behavior unverified.</td>
+</tr>
+<tr>
+<td><code>ModelAsset</code></td>
+<td>Existing model asset visual references</td>
+<td>Does not expose binary model/animation-file replacement. Broad runtime behavior unverified.</td>
+</tr>
+<tr>
+<td><code>BlockType</code></td>
+<td>Existing block visual configuration</td>
+<td>Full native definition can affect gameplay. No visual-field-only patch interface.</td>
+</tr>
+<tr>
+<td><code>Item</code></td>
+<td>Existing item visual configuration</td>
+<td>Full native definition can affect gameplay. No visual-field-only patch interface.</td>
+</tr>
+</tbody>
+</table>
+<p>These are the complete store names accepted by 0.3.1. Environment, ModelVFX, camera, camera-shake and other stores are not added merely because they contain visual fields.</p>
+<p>Preserve native directory conventions for clarity. For example, package a complete compatible <code>Zone1_Sunny</code> weather JSON at <code>Server/Weathers/Zone1/Zone1_Sunny.json</code>, then explicitly register:</p>
+<pre><code class="language-java">TexturePack weatherPack = new TexturePack(
+    &quot;yourname.weather&quot;, &quot;Weather Colors&quot;, &quot;1.0.0&quot;, &quot;Your Name&quot;,
+    List.of(),
+    List.of(new TexturePack.Definition(
+        &quot;Weather&quot;, &quot;Zone1_Sunny&quot;, &quot;/Server/Weathers/Zone1/Zone1_Sunny.json&quot;
+    ))
+);
+TexturePackApi.get().register(weatherPack, YourPlugin.class);
+</code></pre>
+<p>Here <code>YourPlugin</code> is your own plugin class; <code>List</code> and the API records require the imports shown in section 4. The resource must contain the <strong>complete native definition compatible with the installed server</strong>, with unrelated properties preserved. A snippet containing only a changed color is not a manager patch. This guide does not supply Hytale's original definition files.</p>
+<p>Some native sources have specialized extensions such as <code>.particlespawner</code>. The current definition resource API requires <code>.json</code> inside your JAR: preserve the source's logical directory and native ID, save the compatible JSON document as a <code>.json</code> resource, and explicitly select its store. This is a definition-adapter requirement; PNG structure remains unchanged.</p>
+<p>The store and ID must exist before Apply. Native decoding/re-registration happens on the manager worker. A bad definition can fail Apply; test decoding, rendering and restoration against the exact game version. Editing an effect's definition does not guarantee that an already-running effect instance will recreate itself; re-emission or another native trigger may be required.</p>
+<p><strong>Visual-only is the intended pack scope, not an enforced field sandbox in 0.3.1.</strong> Full Item/BlockType/Fluid/Model definitions may also contain gameplay or sound-related fields. Preserve those properties, do not use this adapter to alter audio/gameplay/original cosmetics, and review full definitions before enabling a third-party pack. There is no implemented visual-field allowlist or merge layer yet.</p>
+<p>References in definitions should point to assets already registered by Hytale or another required mod, or to existing PNG paths being overridden. The PNG API cannot introduce arbitrary fresh dependency paths. Dependencies on another mod's targets need that mod's own manifest dependency as well as the manager dependency.</p>
+<h2 id="9-resolution-transparency-and-animation">9. Resolution, transparency and animation</h2>
+<p><strong>Start with the original dimensions and layout.</strong> The manager validates image limits but does not rewrite UVs, atlas frames, masks, shader inputs, tint behavior or alpha modes. A larger file is not automatically a valid higher-resolution material for every consumer.</p>
+<p>A close-up stone experiment showed finer visible detail with a 256×256 replacement than with a real 32×32 control. That is evidence beyond a 32-pixel representation for that target, not GPU readback, a universal resolution limit or a guarantee for tools/armor/UI. An upscaled iron-tool fixture was rejected by the client; its original-dimensional counterpart worked.</p>
+<p>Keep alpha where the native material expects it. Transparency in a PNG does not change opaque/blended material settings or prove correct depth/sort behavior. Native grass/other tints can change the perceived color of a diagnostic image.</p>
+<p>There is no standalone GIF/video/animation-file API. A native sprite atlas may use PNG plus existing or explicitly registered <code>ParticleSpawner</code> frame metadata. Preserve the target's frame grid, dimensions and playback assumptions, then test the actual emitter. A filename or successful JSON load alone is not proof of animated rendering. <code>.blockyanim</code> is not accepted by <code>Entry</code>.</p>
+<h2 id="10-live-reload-restoration-and-lifecycle">10. Live reload, restoration and lifecycle</h2>
+<p>Registration supplies pack data; <strong>Apply</strong> resolves desired state and submits changes. The manager batches PNG updates and requests one native Common-assets rebuild per non-empty PNG batch. Native definitions are reloaded through their stores. Selected block, equipment, NPC, fluid and effect consumers updated live in representative tests.</p>
+<p>There is no client-render completion acknowledgement. A “Submitted …” status means the server submitted work, not that every client finished or accepted the pixels. Inspect the actual consumer and client logs. Re-emitting an effect or rejoining may be necessary for consumers that retain old state. Rejoining is a diagnostic/fallback, not a promise that an invalid material will become valid.</p>
+<p>Only one Apply runs at a time. Submissions are separated by a five-second minimum; existing joining sessions can delay Apply for up to 120 seconds. New connections during Apply are refused with a retry message. These guards are not complete concurrent-multiplayer qualification or an application-level readiness signal for pack authors.</p>
+<p>For each affected target, the manager captures the bytes/native object active <strong>when first touched</strong>, before mutation. This is the restoration baseline. With only Hytale originals loaded, that is the vanilla appearance. If another mod already replaced the target, the captured baseline can contain that mod's appearance. The manager arbitrates conflicts <strong>among packs registered through it</strong>; unrelated direct asset writers/editors are not globally coordinated. Avoid concurrent writes to the same target from another mechanism.</p>
+<p>Apply captures required originals before mutations. Failure attempts rollback and reports that the client state needs inspection. This is not a transaction across every client renderer. Original assets must exist; arbitrary new target creation/removal is not the API's purpose. Content-hashed image blobs and baseline overlays can remain in the manager data directory; do not delete them while the server is running.</p>
+<p>On shutdown, unregister your own pack IDs. At runtime that changes future selection; a later Apply is needed to remove already applied overlays. A normal server restart reloads base assets and applies saved desired settings after registration. Hot-unloading the manager with active packs and relying on shutdown for synchronized client restoration is not supported. For removal/update, use a normal stopped-server JAR replacement, preserve manager settings, and restart.</p>
+<h2 id="11-troubleshooting">11. Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom/message</th>
+<th>Check and next action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Texture Pack Manager is not ready</code></td>
+<td>Install the required dependency; register during setup; avoid early static API access and stale API references.</td>
+</tr>
+<tr>
+<td><code>NoClassDefFoundError</code> / class cast problems</td>
+<td>Compile against the intended manager; declare the manifest dependency; remove shaded/copied manager API and Hytale classes.</td>
+</tr>
+<tr>
+<td>Pack absent from UI</td>
+<td>Read plugin setup logs; check root manifest/main class, required dependency and registration errors. A JAR with PNGs alone does not register itself.</td>
+</tr>
+<tr>
+<td><code>Pack ID already registered</code></td>
+<td>Give independent packs unique IDs; keep the same ID only for updates of that pack, with one installed version.</td>
+</tr>
+<tr>
+<td><code>Missing JAR resource</code> / missing index</td>
+<td>Inspect the final JAR, not only the source folders. Check exact case, leading <code>/</code> on API resources, correct owner class, and generated <code>textures.list</code>.</td>
+</tr>
+<tr>
+<td><code>Target is not registered</code></td>
+<td>Use an existing exact Common-relative path without <code>Common/</code>; check game version, variants and dependencies on other mods.</td>
+</tr>
+<tr>
+<td>Original cosmetic target rejected</td>
+<td>Remove it. Official character clothing/hair/cosmetics are outside this pack format's intended scope; armor uses separate targets.</td>
+</tr>
+<tr>
+<td>No visible change after enabling</td>
+<td>Press Apply; inspect which enabled pack wins this exact path; check the real consumer/variant, native tint, texture dimensions and client warnings.</td>
+</tr>
+<tr>
+<td>Only some faces/variants change</td>
+<td>Add the other actual referenced PNG paths. An item icon and held/placed model may use different files.</td>
+</tr>
+<tr>
+<td>Scaled texture distorted/rejected</td>
+<td>Restore original dimensions/layout first. Review material/UV/frame constraints before increasing resolution.</td>
+</tr>
+<tr>
+<td>JSON registers but Apply fails</td>
+<td>Check allowed exact store name, existing asset ID, complete compatible native definition and references; syntactic JSON validation does not run the native codec.</td>
+</tr>
+<tr>
+<td><code>Native store unavailable or ambiguous</code></td>
+<td>The installed game/mod registry must expose exactly one native store with that class simple name. Do not assume all allowlisted names exist in every version.</td>
+</tr>
+<tr>
+<td><code>Apply already running</code> / players still joining</td>
+<td>Let the current operation/setup finish, then retry. Do not run concurrent asset edits to force it through.</td>
+</tr>
+<tr>
+<td>Reset does not look vanilla</td>
+<td>Baseline may include a prior direct mod override; inspect other asset packs/writers and their normal load order.</td>
+</tr>
+<tr>
+<td>Updated PNG on disk does nothing</td>
+<td>Resources were captured during registration. Rebuild the JAR, replace it while stopped, and restart; use the same stable pack ID.</td>
+</tr>
+</tbody>
+</table>
+<p>For bug reports, include manager/pack/Hytale versions, pack ID, exact target/store+ID, original/replacement dimensions, active order, reproduction steps, client/server error excerpts and whether restoration/rejoin changed the result. Report feedback through comments or a private message on <a href="https://www.curseforge.com/members/ivitjai">Vitja's CurseForge profile</a>. Do not include login tokens or private world data.</p>
+<h2 id="12-pack-author-checklist">12. Pack author checklist</h2>
+<ul>
+<li>Use your own mod identity and a stable, unique pack ID.</li>
+<li>Keep Hytale's <code>Common/...</code> structure and exact case; include only the replacements you intend.</li>
+<li>Declare the manager dependency, set <code>IncludesAssetPack: false</code>, and bundle no manager/SDK classes.</li>
+<li>On each CurseForge pack release file, add the Manager as <strong>Required Dependency</strong>; add required target mods for patches. Verify the saved relations and the intended installer's clean-install behavior.</li>
+<li>Register from setup using a class in your own JAR; unregister your IDs on shutdown.</li>
+<li>Regenerate an optional PNG index on every build; explicitly register any native JSON definitions.</li>
+<li>Respect PNG/JSON limits, native material/UV/frame requirements and cosmetic/audio exclusions.</li>
+<li>Test enabled/disabled state, another pack above/below, an uncovered original, and restoration on the actual consumers.</li>
+<li>Describe exact tested versions and limits. Do not label all assets supported from a successful registration or build.</li>
+</ul>
+<p>Read this guide on the <a href="https://vltja.github.io/texture-pack-manager-examples/">documentation website</a> or in the <a href="https://github.com/Vltja/texture-pack-manager-examples">example repository</a>. The Starter is a separate download and is not bundled with the Manager. The repository includes explicit permission to reuse its example materials for compatible texture-pack mods. This does not change the proprietary status of the Manager implementation or grant redistribution rights to Hytale or other third-party assets.</p>
+</article>
+<footer>© 2026 Vitja · <a href="https://github.com/Vltja/texture-pack-manager-examples/blob/main/LICENSE.md">Example reuse permission</a> · <a href="https://github.com/Vltja/texture-pack-manager-examples/issues">Report a documentation issue</a></footer>
+</main></body></html>
