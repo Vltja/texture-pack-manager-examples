@@ -29,6 +29,9 @@ Obtain the server JAR through your Hytale installation or the
 [official server distribution workflow](https://support.hytale.com/hc/en-us/articles/45326769420827-Hytale-Server-Manual).
 Do not upload either dependency to this repository or bundle its classes in a pack.
 **Built/checked with Hytale 0.7.7**; the manifest supports **>=0.7.0 <0.8.0**.
+On a new Manager release, CurseForge may need to approve the project/file before
+the public download appears. The initial Manager 0.3.1 submission is awaiting
+that approval; building requires obtaining both dependency JARs separately.
 
 ### 2. Download and extract the source
 
