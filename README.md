@@ -4,8 +4,26 @@ A small, buildable texture-pack mod for **Texture Pack Manager 0.3.1 / API v1**.
 Use it as a starting point for your own packs. It registers three original
 diagnostic stone textures using Hytale's native **Common/** paths.
 
+## New here? Start with the beginner guide / Neu hier? Starte hier!
+
+**No Java knowledge needed for your first test. / Für deinen ersten Test sind keine Java-Kenntnisse nötig.**
+
+- **[Deutsch: Dein erstes Texture Pack – Schritt für Schritt](docs/BEGINNER_DE.md)** – mit Windows-PowerShell-Befehlen, Beispieltexturen, Mod-Namen, Pack-ID, Installation und Fehlerhilfe.
+- **[English: Your first texture pack – step by step](docs/BEGINNER_EN.md)** – with copyable build commands, edits to real files, installation and troubleshooting.
+
+**Quick route:** Download **Code → Download ZIP** → change the PNGs in `resources/Common/` → edit `resources/manifest.json` and `src/Vitja/TexturePackStarter/StarterPack.java` → run `build.py` with your server/manager JAR paths → install the built JAR next to the manager → enable it with `/texturepacks` and **Apply / Reload**. Follow the beginner guide for every step; the two required dependency JARs are **not** included.
+
+**Ask ChatGPT with your own GitHub URL / Mit ChatGPT und deinem GitHub-Link:**
+
+1. Copy the URL of **this repository** or **your own public fork**.
+2. Paste it into ChatGPT and ask: *„Lies dieses Repository und erkläre mir als Anfänger Schritt für Schritt, wie ich daraus mein eigenes Hytale-Texture-Pack erstelle. Zeige mir genau, welche Dateien ich bearbeiten, wie ich die JAR bauen und im Spiel testen muss. Mein Link: [hier GitHub-URL einfügen].“*
+3. For a longer, copyable prompt, see **[Deutsch](docs/BEGINNER_DE.md#9-hilfe-mit-chatgpt-github-link-kopieren)** or **[English](docs/BEGINNER_EN.md#9-ask-chatgpt-using-your-github-link)**.
+
+**Access note:** Public GitHub URLs can be read when ChatGPT has web access; private repos or edits require explicitly authorized connections. Pasting a URL **does not grant ChatGPT PC access or GitHub write access**. GitHub Actions/CI by itself does not grant either; it runs configured workflows.
+
 | Start here | Link |
 |---|---|
+| Beginner guide (German / English) | [Deutsch](docs/BEGINNER_DE.md) · [English](docs/BEGINNER_EN.md) |
 | Complete API guide | [Documentation website](https://vltja.github.io/texture-pack-manager-examples/) · [Markdown reference](docs/API.md) |
 | Download all example sources | **[Source ZIP](https://github.com/Vltja/texture-pack-manager-examples/archive/refs/tags/v1.0.0.zip)** or **Code → Download ZIP** |
 | Try the compiled demo | **[Starter 1.0.0 JAR](https://github.com/Vltja/texture-pack-manager-examples/releases/download/v1.0.0/texture-pack-starter-1.0.0.jar)** · [Release/checksum](https://github.com/Vltja/texture-pack-manager-examples/releases/tag/v1.0.0) |
@@ -82,6 +100,8 @@ upcoming project. The Manager download itself contains no texture collection.
 
 ## Create your own texture-pack mod
 
+**First time?** Follow the [German](docs/BEGINNER_DE.md) or [English](docs/BEGINNER_EN.md) beginner guide. For a first **local test**, you can keep the existing Java package and manifest `Main` while changing your manifest identity, `StarterPack.ID`, display metadata and PNGs. Rename the Java package and update `Main` **before publishing**. The steps below describe a fully renamed project.
+
 1. Rename the Java package/classes and manifest **Group**, **Name**, **Main**, **Authors** and **Version** consistently.
 2. Give **StarterPack.ID** your own stable, unique ID. Do not publish an unrelated pack as **vitja.starter.stone**.
 3. Add your replacement PNGs under **resources/Common/**, keeping exact native paths and case. An API target omits the Common/ prefix.
@@ -115,8 +135,12 @@ resources/manifest.json               Plugin manifest and runtime dependency
 resources/Common/BlockTextures/       Three original diagnostic stone PNGs
 resources/textures.list               Generated Common-relative paths
 tools/index_textures.py               Build-time PNG index generator
+docs/BEGINNER_DE.md                   Step-by-step beginner guide in German
+docs/BEGINNER_EN.md                   Step-by-step beginner guide in English
 docs/API.md                           Complete API v1 guide
 docs/index.html                       Generated documentation website
+docs/beginner-de.html                 Generated beginner website (German)
+docs/beginner-en.html                 Generated beginner website (English)
 tools/build_site.py                   Documentation renderer
 ~~~
 
@@ -131,7 +155,7 @@ Read the API guide for dimensions, UVs, memory/loading costs, exclusions and rel
 
 ## Maintain the documentation
 
-Edit **docs/API.md**, then regenerate the site:
+Edit **docs/API.md**, **docs/BEGINNER_DE.md** or **docs/BEGINNER_EN.md**, then regenerate the site:
 
 ~~~sh
 python3 -m pip install -r requirements-docs.txt
@@ -140,7 +164,7 @@ python3 tools/build_site.py
 
 Only documentation generation needs this optional Python package.
 Commit the Markdown and generated site together. GitHub Pages publishes the committed
-**docs/** folder; the API text is maintained once within this repository.
+**docs/** folder; each guide is maintained in its Markdown source, not edited in HTML.
 
 ## Permission and feedback
 

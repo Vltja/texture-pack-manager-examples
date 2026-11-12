@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Step by step: replace images, give your pack a unique identity, build the JAR and test it on a server.">
+<title>Your first Hytale texture pack</title><link rel="stylesheet" href="style.css"></head>
+<body><a class="skip" href="#guide">Your first Hytale texture pack</a>
+<aside><a class="brand" href="index.html">Texture Pack<br><strong>Manager</strong></a><p class="version">BEGINNER GUIDE · API v1</p>
+<nav aria-label="Guide sections"><a href="#1-prepare-your-tools">1. Prepare your tools</a><a href="#2-download-and-open-the-project">2. Download and open the project</a><a href="#3-replace-the-stone-image">3. Replace the stone image</a><a href="#4-give-the-pack-a-new-name-and-id">4. Give the pack a new name and ID</a><a href="#5-build-the-jar">5. Build the JAR</a><a href="#6-install-activate-and-test">6. Install, activate and test</a><a href="#7-quick-troubleshooting">7. Quick troubleshooting</a><a href="#8-before-publishing-rename-the-java-namespace">8. Before publishing: rename the Java namespace</a><a href="#9-ask-chatgpt-using-your-github-link">9. Ask ChatGPT using your GitHub link</a></nav>
+<div class="side-links"><a href="index.html">Back to the API guide</a><a href="beginner-de.html">Deutsche Anleitung</a><a href="https://github.com/Vltja/texture-pack-manager-examples">GitHub source ↗</a></div></aside>
+<main><header class="intro"><p class="eyebrow">TEXTURE PACK MANAGER · STARTER</p><h1>Your first Hytale texture pack</h1>
+<p>Step by step: replace images, give your pack a unique identity, build the JAR and test it on a server.</p>
+<div class="actions"><a class="primary" href="https://github.com/Vltja/texture-pack-manager-examples/archive/refs/heads/main.zip">Source ZIP herunterladen / Download source</a>
+<a href="index.html">Back to the API guide</a><a href="beginner-de.html">Deutsche Anleitung</a></div></header>
+<article id="guide"><h1 id="your-first-hytale-texture-pack--beginner-guide">Your first Hytale texture pack — beginner guide</h1>
+<p><strong>For Texture Pack Manager 0.3.1 / API v1 and the <a href="https://github.com/Vltja/texture-pack-manager-examples">Starter repository</a>.</strong> You do not need previous Java experience: change a few files and your own PNGs, then use the included builder. This guide is based on <strong>Hytale 0.7.7</strong> and does not promise compatibility with later versions.</p>
+<p><strong>Goal:</strong> Replace a stone texture, build your own <code>.jar</code> mod, install it on a Hytale server, and turn it on or off with <code>/texturepacks</code>.</p>
+<blockquote>
+<p><strong>Know the difference:</strong> This is a <strong>server-side Java mod</strong>, not a ZIP resource pack you place in a client folder. Texture Pack Manager is installed <strong>separately</strong> on the server. One administrator-selected pack stack applies to all players; per-player pack selection is not currently available.</p>
+</blockquote>
+<h2 id="1-prepare-your-tools">1. Prepare your tools</h2>
+<table>
+<thead>
+<tr>
+<th>You need</th>
+<th>Why</th>
+<th>How to check or obtain</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Starter source</strong></td>
+<td>Your editable template</td>
+<td>Open the <a href="https://github.com/Vltja/texture-pack-manager-examples">repository</a>, select <strong>Code → Download ZIP</strong>, then extract it. No Git account or command line required.</td>
+</tr>
+<tr>
+<td><strong>Python 3.9+</strong></td>
+<td>Runs the included build script</td>
+<td>Windows: <code>py -3 --version</code>. Linux/macOS: <code>python3 --version</code>.</td>
+</tr>
+<tr>
+<td><strong>JDK 25+</strong></td>
+<td>Compiles the Java mod</td>
+<td>Check <code>javac -version</code> and <code>jar --version</code>. Install a <strong>JDK</strong>, not only a Java runtime (JRE).</td>
+</tr>
+<tr>
+<td><strong>HytaleServer.jar</strong></td>
+<td>Compile-time dependency</td>
+<td>Obtain from your own server setup or the <a href="https://support.hytale.com/hc/en-us/articles/45326769420827-Hytale-Server-Manual">official server manual</a>.</td>
+</tr>
+<tr>
+<td><strong>Texture Pack Manager 0.3.1 JAR</strong></td>
+<td>Another compile-time dependency and the runtime manager</td>
+<td>Obtain separately from the <a href="https://www.curseforge.com/hytale/mods/texture-pack-manager">CurseForge project</a>, when the required release is available.</td>
+</tr>
+<tr>
+<td><strong>PNG editor and test server</strong></td>
+<td>Create images and verify results</td>
+<td>Use an editor of your choice and a server on which you can install mods and manage permissions.</td>
+</tr>
+</tbody>
+</table>
+<p>You <strong>do not</strong> need Gradle, Maven, an IDE, GitHub Actions, or additional Python packages to build the mod. The two dependency JARs stay on <strong>your machine</strong> and must <strong>not</strong> be uploaded to a public repository or bundled into your pack JAR.</p>
+<h2 id="2-download-and-open-the-project">2. Download and open the project</h2>
+<ol>
+<li>Open <a href="https://github.com/Vltja/texture-pack-manager-examples">texture-pack-manager-examples</a>.</li>
+<li>Click <strong>Code → Download ZIP</strong> for the latest source on <code>main</code>. Do <strong>not</strong> use the precompiled demo JAR when you want to customize the source.</li>
+<li>Extract the ZIP, for example into <code>C:\TexturePacks\MyPack\</code>.</li>
+<li>Open the folder that actually contains <code>build.py</code> and <code>README.md</code>.</li>
+<li>Open <code>.java</code> and <code>.json</code> files in a text editor; open <code>.png</code> files in an image editor.</li>
+</ol>
+<p>Relevant starter files:</p>
+<pre><code class="language-text">MyPack/
+├── build.py
+├── resources/
+│   ├── manifest.json
+│   └── Common/
+│       └── BlockTextures/
+│           ├── Rock_Stone.png
+│           ├── Rock_Stone_2.png
+│           └── Rock_Stone_3.png
+└── src/
+    └── Vitja/
+        └── TexturePackStarter/
+            ├── StarterPack.java
+            └── StarterPlugin.java
+</code></pre>
+<p><code>StarterPlugin.java</code> already registers the pack with the manager; leave it unchanged for your first test.</p>
+<h2 id="3-replace-the-stone-image">3. Replace the stone image</h2>
+<ol>
+<li>Open <code>resources/Common/BlockTextures/Rock_Stone.png</code>.</li>
+<li>Draw your stone texture. <strong>For the first attempt, preserve the original image dimensions, alpha and layout.</strong></li>
+<li>Save it as a <strong>PNG</strong>, replacing <code>Rock_Stone.png</code> in the same directory with the same spelling and capitalization.</li>
+<li>The example includes <code>Rock_Stone_2.png</code> and <code>Rock_Stone_3.png</code>. Replace those as well to cover the example's other stone variants. <strong>Remove unwanted diagnostic images before publishing</strong> or they will also be included.</li>
+</ol>
+<p>The source file <code>resources/Common/BlockTextures/Rock_Stone.png</code> becomes the JAR resource <code>Common/BlockTextures/Rock_Stone.png</code>. Its API target is <code>BlockTextures/Rock_Stone.png</code> (<strong>without <code>Common/</code></strong>).</p>
+<p><strong>Want to replace a different texture?</strong> First find its <strong>real <code>Common/...png</code> path</strong> in the game assets for the Hytale version you support. Recreate that exact path inside <code>resources/Common/</code>, including letter case, and remove demo images you do not want to ship. The build regenerates <code>resources/textures.list</code> automatically from <strong>all PNGs</strong> beneath that directory. Do <strong>not</strong> manually edit the list. The manager replaces existing registered image paths; it does not create new game objects from arbitrary filenames.</p>
+<h2 id="4-give-the-pack-a-new-name-and-id">4. Give the pack a new name and ID</h2>
+<p>For your first local test you only need to edit <strong>two text files</strong>.</p>
+<h3 id="a-edit-resourcesmanifestjson">A. Edit <code>resources/manifest.json</code></h3>
+<p>Use your own values for <code>Group</code>, <code>Name</code>, <code>Description</code> and <code>Authors</code>:</p>
+<pre><code class="language-json">{
+  &quot;Group&quot;: &quot;YourName&quot;,
+  &quot;Name&quot;: &quot;BlueStone&quot;,
+  &quot;Version&quot;: &quot;1.0.0&quot;,
+  &quot;Description&quot;: &quot;My custom stone textures.&quot;,
+  &quot;Authors&quot;: [{&quot;Name&quot;: &quot;Your Name&quot;}],
+  &quot;Main&quot;: &quot;Vitja.TexturePackStarter.StarterPlugin&quot;,
+  &quot;ServerVersion&quot;: &quot;&gt;=0.7.0 &lt;0.8.0&quot;,
+  &quot;Dependencies&quot;: {&quot;Vitja:TexturePackManager&quot;: &quot;*&quot;},
+  &quot;IncludesAssetPack&quot;: false
+}
+</code></pre>
+<p><code>Group</code> and <code>Name</code> form the <strong>Hytale mod identity</strong>. Make them unique, using a simple name without spaces. <strong>Keep <code>Main</code> unchanged for the first build</strong>: it references the existing Java class, not the pack display name. Leave the manager dependency and <code>&quot;IncludesAssetPack&quot;: false</code> as shown so the manager controls activation. Validate compatibility with the actual game and manager versions you deploy.</p>
+<h3 id="b-edit-srcvitjatexturepackstarterstarterpackjava">B. Edit <code>src/Vitja/TexturePackStarter/StarterPack.java</code></h3>
+<p>Find:</p>
+<pre><code class="language-java">public static final String ID = &quot;vitja.starter.stone&quot;;
+</code></pre>
+<p>Change it to your own stable, unique ID, for example:</p>
+<pre><code class="language-java">public static final String ID = &quot;yourname.bluestone&quot;;
+</code></pre>
+<p>A pack ID uses lowercase <code>a-z</code>, digits, <code>.</code>, <code>_</code> and <code>-</code>; it must start with a lowercase letter or digit. This is <strong>not</strong> the same thing as the manifest's <code>Group:Name</code> identity. Keep the ID stable when updating the same pack.</p>
+<p>Also find:</p>
+<pre><code class="language-java">return new TexturePack(ID, &quot;Texture Pack Starter&quot;, &quot;1.0.0&quot;, &quot;Vitja&quot;, entries);
+</code></pre>
+<p>Change it to:</p>
+<pre><code class="language-java">return new TexturePack(ID, &quot;Blue Stone&quot;, &quot;1.0.0&quot;, &quot;Your Name&quot;, entries);
+</code></pre>
+<p>Leave imports, <code>create()</code> and <code>StarterPlugin.java</code> alone. All PNGs in <code>resources/Common/</code> will be indexed by the build.</p>
+<h2 id="5-build-the-jar">5. Build the JAR</h2>
+<p><strong>On Windows:</strong></p>
+<ol>
+<li>Open the project directory in File Explorer.</li>
+<li>Click the Explorer address bar, type <code>powershell</code> and press <strong>Enter</strong> to open PowerShell in this directory.</li>
+<li>Check <code>py -3 --version</code> and <code>javac -version</code> first.</li>
+<li>Run this <strong>single command</strong>, replacing both sample paths with the exact JAR paths on your PC:</li>
+</ol>
+<pre><code class="language-powershell">py -3 build.py --server-jar &quot;C:\Hytale\HytaleServer.jar&quot; --manager-jar &quot;C:\Hytale\mods\texture-pack-manager-0.3.1.jar&quot;
+</code></pre>
+<p><strong>On Linux/macOS</strong>, open a terminal in the project directory:</p>
+<pre><code class="language-sh">python3 build.py --server-jar &quot;/path/to/HytaleServer.jar&quot; --manager-jar &quot;/path/to/texture-pack-manager-0.3.1.jar&quot;
+</code></pre>
+<p>On success, find <code>build/texture-pack-starter-1.0.0.jar</code> and its <code>.jar.sha256</code> checksum. The builder intentionally keeps the output prefix <code>texture-pack-starter-</code> even after you change your pack's name; the <strong>manifest</strong> identifies the installed Hytale mod. If you change the manifest <code>Version</code>, the JAR file's version suffix changes.</p>
+<p>The builder regenerates <code>textures.list</code>, compiles Java, packages resources and checks the resulting archive. <strong>This output is your pack JAR, not the separate Manager JAR.</strong></p>
+<h2 id="6-install-activate-and-test">6. Install, activate and test</h2>
+<ol>
+<li><strong>Stop the server</strong> and back up your test configuration.</li>
+<li>Place the built pack JAR <strong>and</strong> the separately obtained Manager JAR in the server's <code>mods/</code> directory. Keep only one installed version per manifest identity.</li>
+<li>Restart the server. Check server logs for plugin startup or registration errors.</li>
+<li>Give your administrator the permission <code>vitja.texturepacks.admin</code> through your server's permission system.</li>
+<li>In-game, run <code>/texturepacks</code>, enable your pack, then press <strong>Apply / Reload</strong>.</li>
+<li>Inspect normal stone and its variants. If you only replaced one file, other variants may still show their originals.</li>
+<li>To revert, disable the pack and press <strong>Apply / Reload</strong> again. <code>/tpm reset</code> disables all registered packs and applies the previously captured baseline.</li>
+</ol>
+<p><strong>A listed or registered pack is not proof of correct client rendering.</strong> Test it in the game. Some textures require their original pixel dimensions or extra variants. The Starter artifact has build/registration evidence, not a separate full native gameplay acceptance test.</p>
+<h2 id="7-quick-troubleshooting">7. Quick troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Check</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>py</code> or <code>python3</code> not found</td>
+<td>Install Python 3.9+, reopen the terminal; on some Windows systems <code>python</code> works instead of <code>py -3</code>.</td>
+</tr>
+<tr>
+<td><code>javac</code> or <code>jar</code> not found</td>
+<td>Install <strong>JDK 25+</strong>, configure <code>JAVA_HOME</code>/<code>PATH</code>, reopen the terminal.</td>
+</tr>
+<tr>
+<td><code>Dependency not found</code></td>
+<td>Check that both <strong>absolute</strong> JAR paths exist and are quoted.</td>
+</tr>
+<tr>
+<td><code>Wrong dependency JAR</code></td>
+<td>You must supply the <strong>server</strong> and <strong>manager</strong> JARs, not your own freshly built pack.</td>
+</tr>
+<tr>
+<td>Java compile error</td>
+<td>Verify JDK 25+, Java syntax and dependency versions.</td>
+</tr>
+<tr>
+<td>Pack missing from <code>/texturepacks</code></td>
+<td>Both JARs present? Restarted? Manifest valid? <code>Main</code> unchanged or correctly updated? Registration errors in server log?</td>
+</tr>
+<tr>
+<td>Pack visible but textures unchanged</td>
+<td>Enabled <strong>and</strong> Applied? Exact target path/capitalization? Another pack above yours? Missing stone variants? Registered target exists?</td>
+</tr>
+<tr>
+<td>Wrong image or identity after update</td>
+<td>Remove the old installed JAR, keep the same pack ID for an update, rebuild and restart.</td>
+</tr>
+<tr>
+<td>Missing <code>textures.list</code> or empty pack</td>
+<td>Run <code>build.py</code> and keep at least one PNG under <code>resources/Common/</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>See the <a href="index.html">developer API guide</a> for detailed troubleshooting, priorities, dimensions and registration rules.</p>
+<h2 id="8-before-publishing-rename-the-java-namespace">8. Before publishing: rename the Java namespace</h2>
+<p>Keeping the original <code>Main</code> makes your first local test easier. <strong>Before publishing</strong>, give the project its own Java package so independent forks do not reuse the template namespace:</p>
+<ol>
+<li>Move both Java files from <code>src/Vitja/TexturePackStarter/</code> to <code>src/YourName/BlueStone/</code>.</li>
+<li>At the top of <strong>both</strong> Java files, change <code>package Vitja.TexturePackStarter;</code> to <code>package YourName.BlueStone;</code>.</li>
+<li>Change the manifest entry to <code>&quot;Main&quot;: &quot;YourName.BlueStone.StarterPlugin&quot;</code>.</li>
+<li>Rebuild; ensure the Java <code>package</code>, source folders, class name and manifest <code>Main</code> match.</li>
+<li>Keep the manifest version and <code>new TexturePack(...)</code> version string in sync when releasing an update.</li>
+</ol>
+<p>On <strong>CurseForge</strong>, add the actual Texture Pack Manager project as a <strong>Required Dependency</strong> on every published pack file <strong>in addition to</strong> declaring it in your <code>manifest.json</code>. Publish only textures you made or have rights to redistribute. Test against your target server and Manager version.</p>
+<h2 id="9-ask-chatgpt-using-your-github-link">9. Ask ChatGPT using your GitHub link</h2>
+<p>Copy the URL of the <a href="https://github.com/Vltja/texture-pack-manager-examples">Starter repository</a> or your own public fork, paste it into ChatGPT and ask how to create your pack. You can copy this request:</p>
+<pre><code class="language-text">I am a beginner and want to make my own Hytale texture pack for Texture Pack
+Manager. This is my GitHub repository:
+https://github.com/YOUR-NAME/YOUR-REPOSITORY
+
+Please read README.md, docs/BEGINNER_EN.md, docs/API.md,
+resources/manifest.json, build.py, and the Java sources under src/ first.
+Then tell me exactly what to edit to replace the stone textures, set a
+unique mod name and pack ID, build the JAR, and test it in the game.
+Use actual files and versions from this repository. Give copy-paste-ready
+examples and the path of each file to edit. If you cannot read a file,
+ask for it instead of guessing. Do not modify or push files without
+my explicit authorization.
+</code></pre>
+<p><strong>Access is not automatic.</strong> ChatGPT can generally read a <strong>public</strong> GitHub repository by URL when web access is available. A <strong>private</strong> repo requires an authorized integration or files you provide. Sharing a URL does <strong>not</strong> give ChatGPT access to your computer or write access to GitHub. A user-connected PC/GitHub integration can make those operations possible <strong>only with the permissions actually granted</strong>. <strong>GitHub Actions/CI does not itself provide ChatGPT access</strong>; it only runs configured jobs.</p>
+<p>Never paste tokens, passwords or private keys into the chat, and do not upload proprietary dependency JARs to GitHub.</p>
+<hr />
+<p>Next: Find another real <code>Common/...png</code> path, add its replacement, rebuild and test. For advanced pack stacks, mod patches and experimental native JSON definitions, consult the <a href="index.html">API guide</a>.</p>
+</article>
+<footer>© 2026 Vitja · <a href="https://github.com/Vltja/texture-pack-manager-examples/blob/main/docs/BEGINNER_EN.md">Markdown source</a> · <a href="https://github.com/Vltja/texture-pack-manager-examples/issues">Documentation feedback</a></footer>
+</main></body></html>

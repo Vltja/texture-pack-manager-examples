@@ -8,6 +8,8 @@ A texture pack is a separate Hytale Java mod. It carries its replacement images 
 
 This guide describes the current experimental implementation. The manifest declares the Hytale `0.7.x` range; actual runtime observations are from **0.7.7**. API v1 is the current contract name, not a guarantee of compatibility with every future manager release. Compile against the manager version you intend to support.
 
+**First texture pack? / Erstes Texture Pack?** Start with the beginner guides: **[Deutsch – Schritt für Schritt](https://github.com/Vltja/texture-pack-manager-examples/blob/main/docs/BEGINNER_DE.md)** or **[English – step by step](https://github.com/Vltja/texture-pack-manager-examples/blob/main/docs/BEGINNER_EN.md)**. They cover editing the real Starter files, the two required JARs, building on Windows/Linux/macOS, testing on the server, common errors, and a copyable ChatGPT prompt that accepts your own GitHub URL. A public repository link helps ChatGPT read source files when web access is available, but does **not** itself grant PC access or permission to push changes; GitHub CI does not grant that access either.
+
 ## Contents
 
 1. [What a pack can change](#1-what-a-pack-can-change)
